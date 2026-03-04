@@ -1,10 +1,8 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import axios from "axios";
 import * as cheerio from "cheerio";
 import Levenshtein from "fast-levenshtein";
 import dotenv from "dotenv";
-import Database from "better-sqlite3";
 import { GoogleGenAI } from "@google/genai";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -16,17 +14,7 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
-const db = new Database('jobs_cache.db');
-db.exec(`
-  CREATE TABLE IF NOT EXISTS job_analysis (
-    id TEXT PRIMARY KEY,
-    convention TEXT,
-    estimatedSalary INTEGER,
-    confidence TEXT,
-    driveTime TEXT,
-    transitTime TEXT
-  )
-`);
+const memoryCache = new Map<string, any>();
 
 interface JobOffer {
   id: string;
@@ -98,13 +86,17 @@ async function analyzeJobAsync(job: JobOffer, commute: any) {
   }
 
   try {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO job_analysis (id, convention, estimatedSalary, confidence, driveTime, transitTime)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(job.id, convention, estimatedSalary, confidence, commute.driveTime, commute.transitTime);
+    memoryCache.set(job.id, {
+      id: job.id,
+      convention,
+      estimatedSalary,
+      confidence,
+      driveTime: commute.driveTime,
+      transitTime: commute.transitTime,
+      expiresAt: Date.now() + 1000 * 60 * 60 * 24 // 24h
+    });
   } catch (e) {
-    console.error("DB Error:", e);
+    console.error("Cache Error:", e);
   }
 }
 
@@ -508,8 +500,8 @@ app.get("/api/jobs", async (req, res) => {
 
     const enrichedJobs = uniqueJobs.map(job => {
       try {
-        const cached = db.prepare('SELECT * FROM job_analysis WHERE id = ?').get(job.id) as any;
-        if (cached) {
+        const cached = memoryCache.get(job.id);
+        if (cached && cached.expiresAt > Date.now()) {
           return {
             ...job,
             convention: cached.convention,
@@ -538,6 +530,8 @@ app.get("/api/jobs", async (req, res) => {
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
+    const viteModule = await import("vite");
+    const createViteServer = viteModule.createServer;
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -559,4 +553,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.NODE_ENV !== "production" || process.env.RUN_SERVER === "1") {
+  startServer();
+}
+
+export default app;
