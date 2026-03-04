@@ -149,30 +149,30 @@ function deduplicateJobs(jobs: JobOffer[]): JobOffer[] {
 
 // --- Scrapers & API Clients ---
 
-async function fetchFranceTravail(radius: number, clientId?: string, clientSecret?: string): Promise<JobOffer[]> {
-  const finalClientId = (clientId && clientId.trim() !== "") ? clientId : process.env.FRANCE_TRAVAIL_CLIENT_ID;
-  const finalClientSecret = (clientSecret && clientSecret.trim() !== "") ? clientSecret : process.env.FRANCE_TRAVAIL_CLIENT_SECRET;
+async function fetchFranceTravail(radius: number, ftClientId?: string, ftClientSecret?: string): Promise<JobOffer[]> {
+  const clientId = (ftClientId && ftClientId.trim() !== "") ? ftClientId : process.env.FRANCE_TRAVAIL_CLIENT_ID;
+  const clientSecret = (ftClientSecret && ftClientSecret.trim() !== "") ? ftClientSecret : process.env.FRANCE_TRAVAIL_CLIENT_SECRET;
 
-  if (!finalClientId || !finalClientSecret) {
-    console.log("France Travail: Missing credentials");
-    return [];
+  if (!clientId || !clientSecret) {
+    console.log("France Travail: Missing credentials, switching to web scraping fallback");
+    return scrapeFranceTravail();
   }
 
   try {
     console.log(`France Travail: Fetching jobs (radius: ${radius}km)`);
     // Auth
-    const authRes = await axios.post(
+    const tokenRes = await axios.post(
       "https://entreprise.pole-emploi.fr/connexion/oauth2/access_token?realm=%2Fpartenaire",
       new URLSearchParams({
         grant_type: "client_credentials",
-        client_id: finalClientId,
-        client_secret: finalClientSecret,
+        client_id: clientId,
+        client_secret: clientSecret,
         scope: "api_offresdemploiv2 o2dso rechercheoffres",
       }).toString(),
       { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     );
 
-    const token = authRes.data.access_token;
+    const token = tokenRes.data.access_token;
 
     // Search
     const validRadii = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 100];
@@ -211,6 +211,42 @@ async function fetchFranceTravail(radius: number, clientId?: string, clientSecre
       }));
   } catch (error) {
     console.error("France Travail API Error:", error);
+    // FALLBACK: si l'API officielle plante ou n'a pas de clés, on scrape le site
+    return scrapeFranceTravail();
+  }
+}
+
+// Fallback web scraper for France Travail
+async function scrapeFranceTravail(): Promise<JobOffer[]> {
+  try {
+    console.log("France Travail: Using Scraping Fallback...");
+    const url = "https://candidat.pole-emploi.fr/offres/recherche?motsCles=psychologue&offresPartenaires=true&rayon=20&tri=0";
+    const res = await axios.get(url, { headers: HEADERS });
+    const $ = cheerio.load(res.data);
+    const jobs: JobOffer[] = [];
+
+    $(".result").each((i, el) => {
+      const title = $(el).find(".titre").text().trim();
+      const company = $(el).find(".subtext").first().text().trim();
+      const location = $(el).find("span").filter((_, span) => !!$(span).text().match(/[0-9]{2}/)).first().text().trim();
+      const linkId = $(el).attr("data-id-offre");
+
+      if (isPsyJob(title) && linkId) {
+        jobs.push({
+          id: `ft-scrape-${linkId}`,
+          title,
+          company: company || "Non spécifié",
+          location: location || "Occitanie",
+          source: "France Travail",
+          url: `https://candidat.pole-emploi.fr/offres/recherche/detail/${linkId}`,
+          date: new Date().toISOString()
+        });
+      }
+    });
+
+    return jobs;
+  } catch (err) {
+    console.error("France Travail Scraping Error:", err);
     return [];
   }
 }
@@ -225,8 +261,9 @@ async function fetchSerpApi(radius: number, apiKeyOverride?: string): Promise<Jo
   try {
     // Try with a slightly broader query if needed, but start specific
     const queries = [
-      { q: "psychologue", location: "Nîmes, France" },
-      { q: "psychologue Nîmes", location: "" }
+      { q: "psychologue Nimes", location: "" },
+      { q: "psychologue Gard", location: "" },
+      { q: "psychologue Occitanie", location: "" }
     ];
 
     let allJobs: any[] = [];
