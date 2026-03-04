@@ -285,7 +285,7 @@ async function fetchServicePublic(): Promise<JobOffer[]> {
   try {
     console.log("Service Public: Scraping jobs...");
     // Updated URL to use the base search page which is confirmed to exist
-    const url = "https://choisirleservicepublic.gouv.fr/nos-offres/?query=psychologue&location=Nimes";
+    const url = "https://choisirleservicepublic.gouv.fr/nos-offres/filtres/localisation/Toute%20la%20France/mot%20cl%C3%A9/psychologue/";
     const res = await axios.get(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -308,13 +308,18 @@ async function fetchServicePublic(): Promise<JobOffer[]> {
       const link = $(el).find("a.c-cardJob__link, a.fr-card__link, a").first().attr("href");
 
       if (isPsyJob(title)) {
+        const strictLoc = location ? location.toLowerCase() : "";
+        if (strictLoc !== "" && !strictLoc.includes("gard") && !strictLoc.includes("nîmes") && !strictLoc.includes("30") && !strictLoc.includes("nimes") && !strictLoc.includes("occitanie")) {
+          return; // Ignore distant locations returned by service public
+        }
+
         jobs.push({
           id: `csp-${i}-${Date.now()}`,
           title,
           company: company || "Service Public",
           location: location || "Nîmes",
-          source: "Choisir le Service Public",
-          url: link ? (link.startsWith("http") ? link : `https://choisirleservicepublic.gouv.fr${link}`) : url,
+          source: "Service Public",
+          url: link ? (link.startsWith("http") ? link : `https://choisirleservicepublic.gouv.fr${link}`) : "https://choisirleservicepublic.gouv.fr/nos-offres",
           date: new Date().toISOString(),
           description: "",
         });
@@ -346,7 +351,7 @@ const checkTccMatch = (text: string): boolean => {
 // 1. Source: FHF (Fédération Hospitalière de France)
 async function fetchFHF(): Promise<JobOffer[]> {
   try {
-    const url = 'https://emploi.fhf.fr/offres-emploi?keywords=Psychothérapeute&department=30';
+    const url = 'https://emploi.fhf.fr/offres-emploi?keywords=Psychologue&department=30';
     const response = await axios.get(url, { headers: HEADERS });
     const html = response.data;
     const $ = cheerio.load(html);
@@ -387,7 +392,7 @@ async function fetchFHF(): Promise<JobOffer[]> {
 // 2. Source: ASH (Actualités Sociales Hebdomadaires)
 async function fetchASH(): Promise<JobOffer[]> {
   try {
-    const url = 'https://www.ash.tm.fr/emplois/recherche?keywords=Psychothérapeute&location=Gard';
+    const url = 'https://www.ash.tm.fr/emplois/recherche?keywords=Psychologue&location=Gard';
     const response = await axios.get(url, { headers: HEADERS });
     const html = response.data;
     const $ = cheerio.load(html);
