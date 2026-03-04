@@ -1,0 +1,55 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+@import "leaflet.markercluster/dist/MarkerCluster.css";
+@import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+
+@theme {
+  --color-primary: #F0C5D5;
+  --color-secondary: #8AC0DE;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* Custom marker cluster styles */
+.marker-cluster-small {
+	background-color: rgba(138, 192, 222, 0.6); /* secondary */
+	}
+.marker-cluster-small div {
+	background-color: rgba(138, 192, 222, 0.8);
+	}
+
+.marker-cluster-medium {
+	background-color: rgba(240, 197, 213, 0.6); /* primary */
+	}
+.marker-cluster-medium div {
+	background-color: rgba(240, 197, 213, 0.8);
+	}
+
+.marker-cluster-large {
+	background-color: rgba(240, 197, 213, 0.8);
+	}
+.marker-cluster-large div {
+	background-color: rgba(240, 197, 213, 1);
+	}
+
+.marker-cluster {
+	background-clip: padding-box;
+	border-radius: 20px;
+	}
+.marker-cluster div {
+	width: 30px;
+	height: 30px;
+	margin-left: 5px;
+	margin-top: 5px;
+
+	text-align: center;
+	border-radius: 15px;
+	font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
+	}
+.marker-cluster span {
+	line-height: 30px;
+	}
