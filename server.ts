@@ -351,7 +351,7 @@ const checkTccMatch = (text: string): boolean => {
 // 1. Source: FHF (Fédération Hospitalière de France)
 async function fetchFHF(): Promise<JobOffer[]> {
   try {
-    const url = 'https://emploi.fhf.fr/offres-emploi?keywords=Psychologue&department=30';
+    const url = 'https://www.fhf.fr/offres-emploi?keyword=Psychologue&region=76';
     const response = await axios.get(url, { headers: HEADERS });
     const html = response.data;
     const $ = cheerio.load(html);
@@ -392,7 +392,7 @@ async function fetchFHF(): Promise<JobOffer[]> {
 // 2. Source: ASH (Actualités Sociales Hebdomadaires)
 async function fetchASH(): Promise<JobOffer[]> {
   try {
-    const url = 'https://www.ash.tm.fr/emplois/recherche?keywords=Psychologue&location=Gard';
+    const url = 'https://www.ash.tm.fr/emplois/recherche?query=Psychologue&location=Occitanie';
     const response = await axios.get(url, { headers: HEADERS });
     const html = response.data;
     const $ = cheerio.load(html);
@@ -430,10 +430,10 @@ async function fetchASH(): Promise<JobOffer[]> {
   }
 }
 
-// 3. Source: Tableau du personnel CHU de Nîmes
+// 3. Source: CHU Nîmes (Direct)
 async function fetchCHUNimes(): Promise<JobOffer[]> {
   try {
-    const url = 'https://www.chu-nimes.fr/espace-recrutement.html';
+    const url = 'https://www.chu-nimes.fr/nous-rejoindre/offres-demploi.html';
     const response = await axios.get(url, { headers: HEADERS });
     const html = response.data;
     const $ = cheerio.load(html);
